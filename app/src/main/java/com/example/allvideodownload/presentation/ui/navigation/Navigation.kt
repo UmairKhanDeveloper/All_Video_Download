@@ -30,6 +30,7 @@ fun Navigation(navController: NavHostController) {
         composable(Screen.HomeScreen.route) { HomeScreen() }
         composable(Screen.ProgressScreen.route) { ProgressScreen() }
         composable(Screen.DownloadScreen.route) { ProgressScreen() }
+
     }
 
 }
@@ -38,6 +39,7 @@ sealed class Screen(val route: String, val title: String, val icon: Int) {
     object HomeScreen : Screen("HomeScreen", "Home", icon = R.drawable.ic_home)
     object ProgressScreen : Screen("ProgressScreen", "Progress", icon = R.drawable.ic_download)
     object DownloadScreen : Screen("DownloadScreen", "Download", icon = R.drawable.ic_file_download)
+
 
 }
 
