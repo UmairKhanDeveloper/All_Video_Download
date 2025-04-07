@@ -1,6 +1,8 @@
 package com.example.allvideodownload.presentation.ui.screen.home
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Attachment
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,7 +42,9 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,12 +54,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.allvideodownload.R
+import com.example.allvideodownload.data.remote.api.apl
+import com.example.allvideodownload.data.remote.apiclient.VideoApiClient
+import com.example.allvideodownload.data.remote.apiclient.VideosClient
+import com.example.allvideodownload.presentation.viewmodel.MainViewModel
+import com.example.allvideodownload.domain.repoistory.Repository
+import com.example.allvideodownload.domain.usecase.ResultState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -63,6 +75,33 @@ fun HomeScreen() {
     var textField by remember { mutableStateOf("") }
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+    val repository = remember {Repository()}
+    val viewModel = remember { MainViewModel(repository) }
+    val state by viewModel.allVideos.collectAsState()
+    val allVideosDownload by remember { mutableStateOf<VideosClient?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    when(state){
+        is ResultState.Error -> {
+            isLoading =false
+            val error =(state as ResultState.Error).error
+            Text(text = "$error")
+        }
+        ResultState.Loading -> {
+            isLoading=true
+        }
+        is ResultState.Succses -> {
+            isLoading=false
+            var succses = (state as ResultState.Succses).response
+            succses= allVideosDownload!!
+
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.AllVideoDownloader()
+    }
+
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -77,13 +116,34 @@ fun HomeScreen() {
                 onDismissRequest = { showBottomSheet = false },
                 sheetState = sheetState
             ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 8.dp),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Close",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE0E0E0))
+                            .clickable { showBottomSheet = false }
+                            .padding(4.dp),
+                        tint = Color.Black
+                    )
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp)
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -121,21 +181,23 @@ fun HomeScreen() {
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
                     Divider(thickness = 0.5.dp, color = Color.LightGray)
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Text(
                         text = "Path:/storage/emul...idMate/download/",
                         fontSize = 12.sp,
                         color = Color.Gray,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -153,13 +215,11 @@ fun HomeScreen() {
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Audio Section
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
@@ -175,39 +235,40 @@ fun HomeScreen() {
                                 colorFilter = ColorFilter.tint(Color.White)
                             )
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(text = "Music", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     val audioSelectedOption = remember { mutableStateOf("") }
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceAround
                         ) {
-                            RadioButtonOptionAudio("128K (MMA) 10.15MB", audioSelectedOption)
-                            RadioButtonOptionAudio("128K (MP3) 10.15MB", audioSelectedOption)
+                            RadioButtonOptionAudio("128K (MMA)", audioSelectedOption)
+                            RadioButtonOptionAudio("128K (MP3)", audioSelectedOption)
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceAround
                         ) {
-                            RadioButtonOptionAudio("48K (MP3) 4.05MB", audioSelectedOption)
-                            RadioButtonOptionAudio("256K (MP3) 10.35MB", audioSelectedOption)
+                            RadioButtonOptionAudio("48K (MP3)", audioSelectedOption)
+                            RadioButtonOptionAudio("256K (MP3)", audioSelectedOption)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Video Section
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
@@ -223,41 +284,42 @@ fun HomeScreen() {
                                 colorFilter = ColorFilter.tint(Color.White)
                             )
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(text = "Video", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     val videoSelectedOption = remember { mutableStateOf("") }
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceAround
                         ) {
-                            RadioButtonOptionAudio("144P (MP4) 15.32MB", videoSelectedOption)
-                            RadioButtonOptionAudio("240P (MP4) 19.26MB", videoSelectedOption)
+                            RadioButtonOptionAudio("144P (MP4)", videoSelectedOption)
+                            RadioButtonOptionAudio("240P (MP4)", videoSelectedOption)
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceAround
                         ) {
-                            RadioButtonOptionAudio("360P (MP4) 26.09MB", videoSelectedOption)
-                            RadioButtonOptionAudio("480P (MP4) 34.18MB", videoSelectedOption)
+                            RadioButtonOptionAudio("360P (MP4)", videoSelectedOption)
+                            RadioButtonOptionAudio("480P (MP4)", videoSelectedOption)
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceAround
                         ) {
-                            RadioButtonOptionAudio("720P HD (MP4) 95.06MB", videoSelectedOption)
-                            RadioButtonOptionAudio("1080P HD (MP4) 191.92MB", videoSelectedOption)
+                            RadioButtonOptionAudio("720P HD (MP4)", videoSelectedOption)
+                            RadioButtonOptionAudio("1080P HD (MP4)", videoSelectedOption)
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
                         onClick = { },
@@ -271,6 +333,7 @@ fun HomeScreen() {
                 }
             }
         }
+
 
         Scaffold(topBar = {
             CenterAlignedTopAppBar(title = {
@@ -336,17 +399,39 @@ fun HomeScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    SocialMediaIcon(icon = R.drawable.ic_youtube, label = "YouTube")
-                    SocialMediaIcon(icon = R.drawable.ic_tiktok, label = "TikTok")
-                    SocialMediaIcon(icon = R.drawable.ic_instagram, label = "Instagram")
-                    SocialMediaIcon(icon = R.drawable.ic_facebook, label = "Facebook")
+                    val context = LocalContext.current
+
+                    SocialMediaIcon(icon = R.drawable.ic_youtube, label = "YouTube") {
+                        val url = "https://www.youtube.com/"
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        context.startActivity(intent)
+                    }
+
+                    SocialMediaIcon(icon = R.drawable.ic_tiktok, label = "TikTok") {
+                        val url = "https://www.tiktok.com/"
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        context.startActivity(intent)
+                    }
+
+                    SocialMediaIcon(icon = R.drawable.ic_instagram, label = "Instagram") {
+                        val url = "https://www.instagram.com/"
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        context.startActivity(intent)
+                    }
+
+                    SocialMediaIcon(icon = R.drawable.ic_facebook, label = "Facebook") {
+                        val url = "https://www.facebook.com/"
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        context.startActivity(intent)
+                    }
                 }
             }
         }
     }
 }
+
 @Composable
-fun SocialMediaIcon(icon: Int, label: String) {
+fun SocialMediaIcon(icon: Int, label: String,    onClick: () -> Unit, ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -355,6 +440,7 @@ fun SocialMediaIcon(icon: Int, label: String) {
         Box(
             modifier = Modifier
                 .size(60.dp)
+                .clickable { onClick() }
                 .clip(RoundedCornerShape(12.dp))
                 .border(1.5.dp, Color(0xFFD1D1D1), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center

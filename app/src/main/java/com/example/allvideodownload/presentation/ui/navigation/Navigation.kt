@@ -21,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.allvideodownload.R
+import com.example.allvideodownload.presentation.ui.screen.download.DownloadScreen
 import com.example.allvideodownload.presentation.ui.screen.home.HomeScreen
 import com.example.allvideodownload.presentation.ui.screen.progress.ProgressScreen
 
@@ -29,7 +30,7 @@ fun Navigation(navController: NavHostController) {
     NavHost(navController = navController, startDestination = Screen.HomeScreen.route) {
         composable(Screen.HomeScreen.route) { HomeScreen() }
         composable(Screen.ProgressScreen.route) { ProgressScreen() }
-        composable(Screen.DownloadScreen.route) { ProgressScreen() }
+        composable(Screen.DownloadScreen.route) { DownloadScreen() }
 
     }
 
