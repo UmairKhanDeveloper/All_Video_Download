@@ -1,8 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
-    alias(libs.plugins.kotlinxSerialization) // This enables serialization support
-    id("kotlin-kapt")
+    alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -44,7 +44,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
+        kotlinCompilerExtensionVersion = "1.5.13"
     }
 
     packaging {
@@ -71,11 +71,12 @@ dependencies {
     implementation(libs.ktor.client.serialization.kotlinx.json)
     implementation(libs.ktor.client.android)
 
-    // Navigation, Coil, Room, etc.
+    // Navigation, Coil, Compose Icons
     val nav_version = "2.7.7"
     implementation("androidx.navigation:navigation-compose:$nav_version")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.compose.material:material-icons-extended:1.6.3")
+    implementation("io.coil-kt:coil-compose:2.1.0")
 
 
 }

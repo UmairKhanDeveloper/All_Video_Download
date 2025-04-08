@@ -13,19 +13,19 @@ import kotlinx.coroutines.launch
 
 
 class MainViewModel(private val repository: Repository) : ViewModel() {
-        private val _allVideos = MutableStateFlow<ResultState<VideosClient>>(ResultState.Loading)
-        val allVideos: StateFlow<ResultState<VideosClient>> = _allVideos.asStateFlow()
+    private val _allVideos = MutableStateFlow<ResultState<apl>>(ResultState.Loading)
+    val allVideos: StateFlow<ResultState<apl>> = _allVideos.asStateFlow()
 
-        suspend fun AllVideoDownloader() {
-            viewModelScope.launch {
-                _allVideos.value = ResultState.Loading
-                try {
-                    val response = repository.AllVideosDownload()
-                   _allVideos.value = ResultState.Succses(response)
-                } catch (e: Exception) {
-                    _allVideos.value = ResultState.Error(e)
+     fun AllVideoDownloader(url: String) {
+        viewModelScope.launch {
+            _allVideos.value = ResultState.Loading
+            try {
+                val response = repository.AllVideosDownload(url)
+                _allVideos.value = ResultState.Succses(response)
+            } catch (e: Exception) {
+                _allVideos.value = ResultState.Error(e)
 
-                }
             }
         }
     }
+}

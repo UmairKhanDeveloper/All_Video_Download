@@ -3,6 +3,8 @@ package com.example.allvideodownload.presentation.ui.screen.home
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
+import android.os.StatFs
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Attachment
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -42,7 +45,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,19 +56,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
+import coil.compose.rememberImagePainter
 import com.example.allvideodownload.R
 import com.example.allvideodownload.data.remote.api.apl
-import com.example.allvideodownload.data.remote.apiclient.VideoApiClient
-import com.example.allvideodownload.data.remote.apiclient.VideosClient
-import com.example.allvideodownload.presentation.viewmodel.MainViewModel
 import com.example.allvideodownload.domain.repoistory.Repository
 import com.example.allvideodownload.domain.usecase.ResultState
+import com.example.allvideodownload.presentation.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -75,31 +78,33 @@ fun HomeScreen() {
     var textField by remember { mutableStateOf("") }
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
-    val repository = remember {Repository()}
+    val repository = remember { Repository() }
     val viewModel = remember { MainViewModel(repository) }
     val state by viewModel.allVideos.collectAsState()
-    val allVideosDownload by remember { mutableStateOf<VideosClient?>(null) }
+    val videoData = remember { mutableStateOf<apl?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    when(state){
+    when (state) {
         is ResultState.Error -> {
-            isLoading =false
-            val error =(state as ResultState.Error).error
+            isLoading = false
+            val error = (state as ResultState.Error).error
             Text(text = "$error")
         }
+
         ResultState.Loading -> {
-            isLoading=true
+            isLoading = true
         }
+
         is ResultState.Succses -> {
-            isLoading=false
+            isLoading = false
             var succses = (state as ResultState.Succses).response
-            succses= allVideosDownload!!
+            videoData.value = succses
 
         }
     }
-    LaunchedEffect(Unit) {
-        viewModel.AllVideoDownloader()
-    }
+
+
+
 
 
 
@@ -111,230 +116,238 @@ fun HomeScreen() {
             }
         }
     ) {
-        if (showBottomSheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showBottomSheet = false },
-                sheetState = sheetState
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(end = 8.dp),
-                    contentAlignment = Alignment.TopEnd
+        videoData?.value?.let { api ->
+            if (showBottomSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showBottomSheet = false },
+                    sheetState = sheetState
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Close",
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFE0E0E0))
-                            .clickable { showBottomSheet = false }
-                            .padding(4.dp),
-                        tint = Color.Black
-                    )
-                }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-                ) {
-                    Row(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(end = 8.dp),
+                        contentAlignment = Alignment.TopEnd
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_youtube),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                            )
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Close",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE0E0E0))
+                                .clickable { showBottomSheet = false }
+                                .padding(4.dp),
+                            tint = Color.Black
+                        )
+                    }
 
-                            Spacer(modifier = Modifier.width(12.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp, vertical = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Image(
+                                        painter = rememberAsyncImagePainter(api.thumbnail),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(100.dp)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = "",
+                                        tint = Color.White
+                                    )
+                                }
 
-                            Column {
-                                Text(
-                                    text = "New Naat 2017 -",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = "Sahara Chahiye Sarkar Full HD",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column {
+                                    Text(
+                                        text = api.title ?: "",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
-                        }
 
+
+                        }
                         Text(
                             text = "RENAME",
                             color = Color(0xFF1E88E5),
                             fontWeight = FontWeight.Medium,
                             fontSize = 12.sp,
-                            modifier = Modifier.clickable { }
-                        )
-                    }
-
-                    Divider(thickness = 0.5.dp, color = Color.LightGray)
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Path:/storage/emul...idMate/download/",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "26.5GB FREE/30.0GB",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = "CHANGE",
-                            color = Color(0xFF1E88E5),
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp,
-                            modifier = Modifier.clickable { }
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
                             modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(Color.Red),
-                            contentAlignment = Alignment.Center
+                                .align(Alignment.End)
+                                .clickable { }
+                        )
+
+                        Divider(thickness = 0.5.dp, color = Color.LightGray)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Path:/storage/emul...idMate/download/",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_music),
-                                contentDescription = "Music Icon",
-                                modifier = Modifier.size(20.dp),
-                                colorFilter = ColorFilter.tint(Color.White)
+                            Text(
+                                text = "26.5GB FREE/30.0GB",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                            Text(
+                                text = "CHANGE",
+                                color = Color(0xFF1E88E5),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 12.sp,
+                                modifier = Modifier.clickable { }
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Music", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    val audioSelectedOption = remember { mutableStateOf("") }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 20.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceAround
-                        ) {
-                            RadioButtonOptionAudio("128K (MMA)", audioSelectedOption)
-                            RadioButtonOptionAudio("128K (MP3)", audioSelectedOption)
-                        }
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceAround
-                        ) {
-                            RadioButtonOptionAudio("48K (MP3)", audioSelectedOption)
-                            RadioButtonOptionAudio("256K (MP3)", audioSelectedOption)
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
                             modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(Color.Red),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_videos),
-                                contentDescription = "Video Icon",
-                                modifier = Modifier.size(20.dp),
-                                colorFilter = ColorFilter.tint(Color.White)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Red),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_music),
+                                    contentDescription = "Music Icon",
+                                    modifier = Modifier.size(20.dp),
+                                    colorFilter = ColorFilter.tint(Color.White)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Music", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Video", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
 
-                    val videoSelectedOption = remember { mutableStateOf("") }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 20.dp)
-                    ) {
+                        val audioSelectedOption = remember { mutableStateOf("") }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                RadioButtonOptionAudio("128K (MMA)", audioSelectedOption)
+                                RadioButtonOptionAudio("128K (MP3)", audioSelectedOption)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                RadioButtonOptionAudio("48K (MP3)", audioSelectedOption)
+                                RadioButtonOptionAudio("256K (MP3)", audioSelectedOption)
+                            }
+                        }
+
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceAround
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButtonOptionAudio("144P (MP4)", videoSelectedOption)
-                            RadioButtonOptionAudio("240P (MP4)", videoSelectedOption)
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Red),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_videos),
+                                    contentDescription = "Video Icon",
+                                    modifier = Modifier.size(20.dp),
+                                    colorFilter = ColorFilter.tint(Color.White)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Video", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceAround
+                        val videoSelectedOption = remember { mutableStateOf("") }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 20.dp)
                         ) {
-                            RadioButtonOptionAudio("360P (MP4)", videoSelectedOption)
-                            RadioButtonOptionAudio("480P (MP4)", videoSelectedOption)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                RadioButtonOptionAudio("144P (MP4)", videoSelectedOption)
+                                RadioButtonOptionAudio("240P (MP4)", videoSelectedOption)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                RadioButtonOptionAudio("360P (MP4)", videoSelectedOption)
+                                RadioButtonOptionAudio("480P (MP4)", videoSelectedOption)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                RadioButtonOptionAudio("720P HD (MP4)", videoSelectedOption)
+                                RadioButtonOptionAudio("1080P HD (MP4)", videoSelectedOption)
+                            }
                         }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceAround
+                        Button(
+                            onClick = { },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                         ) {
-                            RadioButtonOptionAudio("720P HD (MP4)", videoSelectedOption)
-                            RadioButtonOptionAudio("1080P HD (MP4)", videoSelectedOption)
+                            Text(text = "Download", color = Color.White, fontSize = 16.sp)
                         }
-                    }
-
-                    Button(
-                        onClick = { },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                    ) {
-                        Text(text = "Download", color = Color.White, fontSize = 16.sp)
                     }
                 }
             }
+
+
         }
-
-
         Scaffold(topBar = {
             CenterAlignedTopAppBar(title = {
                 Text(text = "Video Download", fontWeight = FontWeight.Bold)
@@ -374,6 +387,7 @@ fun HomeScreen() {
                 Button(
                     onClick = {
                         showBottomSheet = true
+                        viewModel.AllVideoDownloader(textField)
                     },
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
@@ -431,7 +445,7 @@ fun HomeScreen() {
 }
 
 @Composable
-fun SocialMediaIcon(icon: Int, label: String,    onClick: () -> Unit, ) {
+fun SocialMediaIcon(icon: Int, label: String, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -487,4 +501,18 @@ fun RadioButtonOptionAudio(option: String, selectedOption: MutableState<String>)
             color = if (selectedOption.value == option) Color.Black else Color.Gray
         )
     }
+}
+
+fun getStorageInfo(): Pair<String, String> {
+    val stat = StatFs(Environment.getExternalStorageDirectory().absolutePath)
+    val bytesAvailable = stat.availableBytes
+    val bytesTotal = stat.totalBytes
+
+    val gbAvailable = bytesAvailable.toDouble() / (1024 * 1024 * 1024)
+    val gbTotal = bytesTotal.toDouble() / (1024 * 1024 * 1024)
+
+    val free = String.format("%.1fGB", gbAvailable)
+    val total = String.format("%.1fGB", gbTotal)
+
+    return Pair(free, total)
 }
