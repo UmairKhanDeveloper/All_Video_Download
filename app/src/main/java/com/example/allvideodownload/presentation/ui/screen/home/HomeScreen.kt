@@ -1,10 +1,21 @@
 package com.example.allvideodownload.presentation.ui.screen.home
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.app.DownloadManager
+import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
-import android.os.StatFs
+import android.provider.MediaStore
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,8 +31,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Attachment
@@ -45,6 +58,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -63,49 +77,105 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import coil.compose.rememberImagePainter
 import com.example.allvideodownload.R
+import com.example.allvideodownload.data.local.db.Video
 import com.example.allvideodownload.data.remote.api.apl
+import com.example.allvideodownload.data.repoistory.VideoDataBase
 import com.example.allvideodownload.domain.repoistory.Repository
 import com.example.allvideodownload.domain.usecase.ResultState
+import com.example.allvideodownload.presentation.ui.navigation.Screen
 import com.example.allvideodownload.presentation.viewmodel.MainViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 @OptIn(ExperimentalMaterial3Api::class)
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "UnrememberedMutableState")
 @Composable
-fun HomeScreen() {
+fun HomeScreen(navController: NavController, ) {
     var textField by remember { mutableStateOf("") }
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
-    val repository = remember { Repository() }
+    val context = LocalContext.current
+    val videoDataBase = VideoDataBase.getDataBase(context)
+    val repository = remember { Repository(videoDataBase) }
     val viewModel = remember { MainViewModel(repository) }
     val state by viewModel.allVideos.collectAsState()
     val videoData = remember { mutableStateOf<apl?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var progressState = remember { mutableStateOf(0f) }
 
-    when (state) {
-        is ResultState.Error -> {
-            isLoading = false
-            val error = (state as ResultState.Error).error
-            Text(text = "$error")
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                Log.d("Permission", "WRITE_EXTERNAL_STORAGE granted")
+                Toast.makeText(context, "Permission Granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.d("Permission", "WRITE_EXTERNAL_STORAGE denied")
+                Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
+            }
         }
+    )
 
-        ResultState.Loading -> {
-            isLoading = true
+    fun checkAndRequestPermissions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            when {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    Log.d("Permission", "WRITE_EXTERNAL_STORAGE already granted")
+                    Toast.makeText(context, "Permission already granted", Toast.LENGTH_SHORT).show()
+                }
+
+                else -> {
+                    Log.d("Permission", "Requesting WRITE_EXTERNAL_STORAGE")
+                    requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                }
+            }
+        } else {
+            Log.d("Permission", "No need to request WRITE_EXTERNAL_STORAGE on Android 10+")
+            Toast.makeText(context, "No permission needed on Android 10+", Toast.LENGTH_SHORT).show()
         }
+    }
 
-        is ResultState.Succses -> {
-            isLoading = false
-            var succses = (state as ResultState.Succses).response
-            videoData.value = succses
-
-        }
+    LaunchedEffect(Unit) {
+        checkAndRequestPermissions()
     }
 
 
 
 
+    when (state) {
+        is ResultState.Error -> {
+            isLoading = false
+            val error = (state as ResultState.Error).error
+            Log.e("API", "Error fetching video data: $error")  
+            Text(text = "$error")
+        }
+
+        ResultState.Loading -> {
+            isLoading = true
+            Log.d("API", "Loading video data...")
+        }
+
+        is ResultState.Succses -> {
+            isLoading = false
+            val succses = (state as ResultState.Succses).response
+            videoData.value = succses
+            Log.d("API", "Successfully fetched video data: $succses")
+        }
+    }
 
 
     Scaffold(
@@ -145,6 +215,9 @@ fun HomeScreen() {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 20.dp, vertical = 16.dp)
+                            .verticalScroll(
+                                rememberScrollState()
+                            )
                     ) {
                         Row(
                             modifier = Modifier
@@ -333,8 +406,48 @@ fun HomeScreen() {
                             }
                         }
 
+                        val context = LocalContext.current
+
                         Button(
-                            onClick = { },
+                            onClick = {
+                                if (videoSelectedOption.value.isNotEmpty()) {
+                                    checkAndRequestPermissions()
+                                    val selectedVideoQuality = videoSelectedOption.value
+                                    val selectedAudioQuality = audioSelectedOption.value
+
+                                    viewModel.Insert(
+                                        Video(
+                                            id = null,
+                                            title = api.title ?: "",
+                                            url = api.url ?: "",
+                                            Image = api.thumbnail ?: "",
+                                            path = api.id ?: ""
+                                        )
+                                    )
+
+
+
+
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        downloadFile(
+                                            context = context,
+                                            url = api.url ?: "",
+                                           title = api.title ?: "downloaded_video",
+                                            mimeType = "",
+                                            updateProgress = { progress ->
+                                                progressState.value = progress
+                                            }
+                                        )
+                                    }
+                                    navController.navigate(Screen.ProgressScreen.route)
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Please select video quality",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
@@ -342,6 +455,8 @@ fun HomeScreen() {
                         ) {
                             Text(text = "Download", color = Color.White, fontSize = 16.sp)
                         }
+
+
                     }
                 }
             }
@@ -496,6 +611,8 @@ fun RadioButtonOptionAudio(option: String, selectedOption: MutableState<String>)
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
+
+
             text = option,
             fontSize = 12.sp,
             color = if (selectedOption.value == option) Color.Black else Color.Gray
@@ -503,16 +620,15 @@ fun RadioButtonOptionAudio(option: String, selectedOption: MutableState<String>)
     }
 }
 
-fun getStorageInfo(): Pair<String, String> {
-    val stat = StatFs(Environment.getExternalStorageDirectory().absolutePath)
-    val bytesAvailable = stat.availableBytes
-    val bytesTotal = stat.totalBytes
+private fun downloadFile(context: Context, url: String, title: String?, mimeType: String) {
+    val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-    val gbAvailable = bytesAvailable.toDouble() / (1024 * 1024 * 1024)
-    val gbTotal = bytesTotal.toDouble() / (1024 * 1024 * 1024)
+    val uri = Uri.parse(url)
+    val request = DownloadManager.Request(uri)
+        .setMimeType(mimeType)
+        .setTitle(title)
+        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "$title.$mimeType")
 
-    val free = String.format("%.1fGB", gbAvailable)
-    val total = String.format("%.1fGB", gbTotal)
-
-    return Pair(free, total)
+    downloadManager.enqueue(request)
 }
