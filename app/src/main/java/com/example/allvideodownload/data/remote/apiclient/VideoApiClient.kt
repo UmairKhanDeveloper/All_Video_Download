@@ -57,7 +57,7 @@ object VideoApiClient {
             headers {
                 append("Content-Type", "application/json")
                 append("x-rapidapi-host", "social-download-all-in-one.p.rapidapi.com")
-                append("x-rapidapi-key", "65951b8989msha06ada35f2357eap14a406jsn7d21338fec93")
+                append("x-rapidapi-key", "972c1a1e5amsh04dc398b681e16fp1de36fjsnd0efe83b3f8a")
             }
             body = TextContent(
                 """{"url":"$url"}""",

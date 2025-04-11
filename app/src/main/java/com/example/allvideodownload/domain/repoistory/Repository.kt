@@ -23,8 +23,9 @@ class Repository(val videoDataBase: VideoDataBase):VideosClient {
         return videoDataBase.getDao().Insert(video)
     }
 
-    suspend fun updateVideoProgress(id: Int, progress: Float) {
-        return videoDataBase.getDao().updateVideoProgress(id, progress)
+    suspend fun updateDownloadProgress(path: String, progress: Float) {
+       return videoDataBase.getDao().updateProgress(path,progress)
     }
+
 
 }

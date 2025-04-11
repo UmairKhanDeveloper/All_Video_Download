@@ -43,34 +43,12 @@ class MainViewModel(private val repository: Repository) : ViewModel() {
     }
 
 
-    fun downloadVideoWithProgress(video: Video, url: String) {
+    fun updateProgress(path: String, progress: Float) {
         viewModelScope.launch(Dispatchers.IO) {
-            val request = Request.Builder().url(url).build()
-            val client = OkHttpClient()
-
-            client.newCall(request).execute().use { response ->
-                val body = response.body ?: return@use
-                val totalBytes = body.contentLength()
-                var downloadedBytes = 0L
-
-                val input = body.byteStream()
-                val output = FileOutputStream(File(video.path))
-
-                val buffer = ByteArray(8192)
-                var bytes = input.read(buffer)
-                while (bytes >= 0) {
-                    output.write(buffer, 0, bytes)
-                    downloadedBytes += bytes
-                    val progress = downloadedBytes / totalBytes.toFloat()
-                    video.id?.let { repository.updateVideoProgress(it, progress) }
-
-                    bytes = input.read(buffer)
-                }
-                output.flush()
-                output.close()
-            }
+            repository.updateDownloadProgress(path, progress)
         }
     }
+
 
 
 

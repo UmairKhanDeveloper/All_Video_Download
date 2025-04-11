@@ -11,8 +11,12 @@ import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
+import android.view.WindowInsetsAnimation
+import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -92,16 +96,24 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
+import okio.buffer
+import okio.sink
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "UnrememberedMutableState")
 @Composable
-fun HomeScreen(navController: NavController, ) {
+fun HomeScreen(navController: NavController) {
     var textField by remember { mutableStateOf("") }
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -112,7 +124,7 @@ fun HomeScreen(navController: NavController, ) {
     val state by viewModel.allVideos.collectAsState()
     val videoData = remember { mutableStateOf<apl?>(null) }
     var isLoading by remember { mutableStateOf(false) }
-    var progressState = remember { mutableStateOf(0f) }
+
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -144,8 +156,7 @@ fun HomeScreen(navController: NavController, ) {
                 }
             }
         } else {
-            Log.d("Permission", "No need to request WRITE_EXTERNAL_STORAGE on Android 10+")
-            Toast.makeText(context, "No permission needed on Android 10+", Toast.LENGTH_SHORT).show()
+
         }
     }
 
@@ -154,13 +165,11 @@ fun HomeScreen(navController: NavController, ) {
     }
 
 
-
-
     when (state) {
         is ResultState.Error -> {
             isLoading = false
             val error = (state as ResultState.Error).error
-            Log.e("API", "Error fetching video data: $error")  
+            Log.e("API", "Error fetching video data: $error")
             Text(text = "$error")
         }
 
@@ -185,7 +194,7 @@ fun HomeScreen(navController: NavController, ) {
                 Icon(Icons.Default.Add, contentDescription = "Open Bottom Sheet")
             }
         }
-    ) {
+    ) { innerPadding ->
         videoData?.value?.let { api ->
             if (showBottomSheet) {
                 ModalBottomSheet(
@@ -215,9 +224,7 @@ fun HomeScreen(navController: NavController, ) {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 20.dp, vertical = 16.dp)
-                            .verticalScroll(
-                                rememberScrollState()
-                            )
+                            .verticalScroll(rememberScrollState())
                     ) {
                         Row(
                             modifier = Modifier
@@ -406,12 +413,13 @@ fun HomeScreen(navController: NavController, ) {
                             }
                         }
 
-                        val context = LocalContext.current
+
 
                         Button(
                             onClick = {
                                 if (videoSelectedOption.value.isNotEmpty()) {
                                     checkAndRequestPermissions()
+
                                     val selectedVideoQuality = videoSelectedOption.value
                                     val selectedAudioQuality = audioSelectedOption.value
 
@@ -421,24 +429,18 @@ fun HomeScreen(navController: NavController, ) {
                                             title = api.title ?: "",
                                             url = api.url ?: "",
                                             Image = api.thumbnail ?: "",
-                                            path = api.id ?: ""
+                                            path = api.id ?: "",
+                                            downloadProgress = 0.100f
                                         )
                                     )
 
+                                    val videoUrl = api.url ?: return@Button
+                                    val fileName = api.title
+                                    downloadFile(context, videoUrl, title = fileName, mimeType = "video/mp4")
 
 
+                                    Log.e("url", videoUrl)
 
-                                    CoroutineScope(Dispatchers.IO).launch {
-                                        downloadFile(
-                                            context = context,
-                                            url = api.url ?: "",
-                                           title = api.title ?: "downloaded_video",
-                                            mimeType = "",
-                                            updateProgress = { progress ->
-                                                progressState.value = progress
-                                            }
-                                        )
-                                    }
                                     navController.navigate(Screen.ProgressScreen.route)
                                 } else {
                                     Toast.makeText(
@@ -457,6 +459,7 @@ fun HomeScreen(navController: NavController, ) {
                         }
 
 
+
                     }
                 }
             }
@@ -469,12 +472,12 @@ fun HomeScreen(navController: NavController, ) {
             }, navigationIcon = {
                 Icon(imageVector = Icons.Default.Menu, contentDescription = "")
             })
-        }) {
+        }) { innerPadding ->  // Access innerPadding here
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
-                    .padding(top = it.calculateTopPadding()),
+                    .padding(innerPadding) // Use innerPadding
+                    .padding(16.dp),
             ) {
 
                 TextField(

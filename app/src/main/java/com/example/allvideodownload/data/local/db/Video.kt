@@ -6,13 +6,11 @@ import androidx.room.PrimaryKey
 
 @Entity
 data class Video(
-    @PrimaryKey(autoGenerate = true)
-    val id: Int?,
-    @ColumnInfo("title")
+    @PrimaryKey(autoGenerate = true) val id: Int? = null,
     val title: String,
     val url: String,
     val Image: String,
     val path: String,
     var downloadProgress: Float = 0f
-
 )
+

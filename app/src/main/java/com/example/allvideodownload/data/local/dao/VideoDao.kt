@@ -15,8 +15,8 @@ interface VideoDao {
     @Query("SELECT * FROM Video ORDER BY id DESC")
     fun getAllVideo(): LiveData<List<Video>>
 
-    @Query("UPDATE video SET downloadProgress = :progress WHERE id = :id")
-    suspend fun updateVideoProgress(id: Int, progress: Float)
+    @Query("UPDATE video SET downloadProgress = :progress WHERE path = :path")
+    suspend fun updateProgress(path: String, progress: Float)
 
 
 }

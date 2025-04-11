@@ -149,7 +149,7 @@ fun ProgressVideosCard(video: Video) {
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 ),
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(end = 16.dp)
                             )
