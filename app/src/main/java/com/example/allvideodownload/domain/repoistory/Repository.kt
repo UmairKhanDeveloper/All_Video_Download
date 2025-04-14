@@ -7,22 +7,23 @@ import com.example.allvideodownload.data.remote.apiclient.VideoApiClient
 import com.example.allvideodownload.data.remote.apiclient.VideosClient
 import com.example.allvideodownload.data.repoistory.VideoDataBase
 
-class Repository(val videoDataBase: VideoDataBase):VideosClient {
+class Repository(val videoDataBase: VideoDataBase) : VideosClient {
     override suspend fun AllVideosDownload(url: String): api {
-      return VideoApiClient.VideosDownload(url)
+        return VideoApiClient.VideosDownload(url)
     }
 
-    fun videoData():LiveData<List<Video>>{
+    fun videoData(): LiveData<List<Video>> {
         return videoDataBase.getDao().getAllVideo()
     }
 
-    suspend fun Insert(video: Video){
+    suspend fun Insert(video: Video) {
         return videoDataBase.getDao().Insert(video)
     }
 
     suspend fun updateDownloadProgress(path: String, progress: Float) {
-       return videoDataBase.getDao().updateProgress(path,progress)
+        return videoDataBase.getDao().updateProgress(path, progress)
     }
+
 
 
 }

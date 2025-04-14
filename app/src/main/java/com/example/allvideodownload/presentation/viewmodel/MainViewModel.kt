@@ -39,14 +39,12 @@ class MainViewModel(private val repository: Repository) : ViewModel() {
     }
 
 
+
     fun updateProgress(path: String, progress: Float) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.updateDownloadProgress(path, progress)
         }
     }
-
-
-
 
 
 }
