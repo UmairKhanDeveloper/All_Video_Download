@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.allvideodownload.data.local.db.Video
-import com.example.allvideodownload.data.remote.api.apl
+import com.example.allvideodownload.data.remote.api.api
 import com.example.allvideodownload.domain.repoistory.Repository
 import com.example.allvideodownload.domain.usecase.ResultState
 import kotlinx.coroutines.Dispatchers
@@ -12,15 +12,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.File
-import java.io.FileOutputStream
 
 
 class MainViewModel(private val repository: Repository) : ViewModel() {
-    private val _allVideos = MutableStateFlow<ResultState<apl>>(ResultState.Loading)
-    val allVideos: StateFlow<ResultState<apl>> = _allVideos.asStateFlow()
+    private val _allVideos = MutableStateFlow<ResultState<api>>(ResultState.Loading)
+    val allVideos: StateFlow<ResultState<api>> = _allVideos.asStateFlow()
 
     val allVideoDAta: LiveData<List<Video>> = repository.videoData()
 

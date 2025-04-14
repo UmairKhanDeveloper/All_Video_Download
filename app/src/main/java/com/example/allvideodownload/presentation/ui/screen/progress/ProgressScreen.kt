@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -84,7 +85,7 @@ fun ProgressScreen() {
                 }
             } else {
                 items(videos) { video ->
-                    ProgressVideosCard(video = video)
+                    ProgressVideosCard(video = video, viewModel = viewModel)
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
@@ -93,108 +94,123 @@ fun ProgressScreen() {
 }
 
 
-
-
 @Composable
-fun ProgressVideosCard(video: Video) {
+fun ProgressVideosCard(video: Video, viewModel: MainViewModel) {
     val context = LocalContext.current
-    val videoDataBase = remember { VideoDataBase.getDataBase(context) }
-    val repository = remember { Repository(videoDataBase) }
-    val viewModel = remember { MainViewModel(repository) }
+
     Card(
         modifier = Modifier
-            .height(120.dp)
-            .width(400.dp),
-        elevation = CardDefaults.elevatedCardElevation(focusedElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(4.dp)
+            .fillMaxWidth()
+            .height(130.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(10.dp),
-            verticalArrangement = Arrangement.Center
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Box(contentAlignment = Alignment.Center) {
-                    Image(
-                        painter = rememberAsyncImagePainter(video.Image),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Fit
+
+            Box(
+                modifier = Modifier.size(100.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(video.Image),
+                    contentDescription = "Thumbnail",
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_play),
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = video.title,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
+
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_play),
-                        contentDescription = "",
-                        tint = Color.White
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Remove",
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .clickable {  },
+                        tint = Color.Gray
                     )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (video.downloadProgress < 1f) {
                     Column {
+                        LinearProgressIndicator(
+                            progress = video.downloadProgress,
+                            color = Color(0xFFfc6a7f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(50))
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = video.title,
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                ),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(end = 16.dp)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .border(1.dp, Color.LightGray, CircleShape)
-                                    .clickable { },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Clear,
-                                    contentDescription = "Clear",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = Color.Gray
-                                )
-                            }
-                        }
-
-
-                        Box(contentAlignment = Alignment.Center) {
-                            LinearProgressIndicator(
-                                color = Color(0XFFfc6a7f),
-                                progress = video.downloadProgress,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(10.dp)
-                                    .clip(CircleShape)
+                                text = "Downloading...",
+                                fontSize = 10.sp,
+                                color = Color(0xFF767676)
                             )
                             Text(
                                 text = "${(video.downloadProgress * 100).toInt()}%",
-                                fontSize = 8.sp,
-                                color = Color.White
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Gray
                             )
                         }
 
 
-                        Text(
-                            text = "Download",
-                            fontSize = 8.sp,
-                            modifier = Modifier.align(Alignment.End),
-                            color = Color(0XFF767676)
-                        )
+                        viewModel.Insert(video)
                     }
+                } else {
+                    Text(
+                        text = "Download completed",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF4CAF50)
+                    )
                 }
             }
         }

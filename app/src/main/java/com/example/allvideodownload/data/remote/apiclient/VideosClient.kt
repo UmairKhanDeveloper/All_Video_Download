@@ -1,7 +1,7 @@
 package com.example.allvideodownload.data.remote.apiclient
 
-import com.example.allvideodownload.data.remote.api.apl
+import com.example.allvideodownload.data.remote.api.api
 
 interface VideosClient {
-    suspend fun AllVideosDownload(url:String):apl
+    suspend fun AllVideosDownload(url:String): api
 }

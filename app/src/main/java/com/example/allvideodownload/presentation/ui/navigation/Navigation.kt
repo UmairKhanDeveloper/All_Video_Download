@@ -21,8 +21,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.allvideodownload.R
-import com.example.allvideodownload.data.local.db.Video
-import com.example.allvideodownload.data.remote.api.apl
 import com.example.allvideodownload.presentation.ui.screen.download.DownloadScreen
 import com.example.allvideodownload.presentation.ui.screen.home.HomeScreen
 import com.example.allvideodownload.presentation.ui.screen.progress.ProgressScreen

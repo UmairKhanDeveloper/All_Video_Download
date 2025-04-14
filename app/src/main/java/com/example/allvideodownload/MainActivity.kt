@@ -1,4 +1,4 @@
-package com.example.allvideodownload.data.remote.api
+package com.example.allvideodownload
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

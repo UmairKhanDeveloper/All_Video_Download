@@ -3,19 +3,13 @@ package com.example.allvideodownload.presentation.ui.screen.home
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.DownloadManager
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.os.Handler
-import android.os.Looper
-import android.provider.MediaStore
 import android.util.Log
-import android.view.WindowInsetsAnimation
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -43,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Attachment
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
@@ -52,8 +47,10 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
@@ -68,6 +65,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,29 +84,15 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.allvideodownload.R
 import com.example.allvideodownload.data.local.db.Video
-import com.example.allvideodownload.data.remote.api.apl
+import com.example.allvideodownload.data.remote.api.api
 import com.example.allvideodownload.data.repoistory.VideoDataBase
 import com.example.allvideodownload.domain.repoistory.Repository
 import com.example.allvideodownload.domain.usecase.ResultState
 import com.example.allvideodownload.presentation.ui.navigation.Screen
 import com.example.allvideodownload.presentation.viewmodel.MainViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import okio.buffer
-import okio.sink
-import java.io.BufferedInputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+
+data class MediaOption(val quality: String, val url: String, val ext: String, val type: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "UnrememberedMutableState")
@@ -122,8 +106,9 @@ fun HomeScreen(navController: NavController) {
     val repository = remember { Repository(videoDataBase) }
     val viewModel = remember { MainViewModel(repository) }
     val state by viewModel.allVideos.collectAsState()
-    val videoData = remember { mutableStateOf<apl?>(null) }
+    val videoData = remember { mutableStateOf<api?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
@@ -330,29 +315,36 @@ fun HomeScreen(navController: NavController) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(text = "Music", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         }
+                        val audioOptions = mutableListOf<MediaOption>()
+
+                        api.medias?.filter { it.type == "audio" }?.forEach { media ->
+                            audioOptions.add(MediaOption(media.quality ?: "Unknown", media.url ?: "", media.ext ?: "", media.type))
+                        }
 
                         val audioSelectedOption = remember { mutableStateOf("") }
+
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 20.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceAround
-                            ) {
-                                RadioButtonOptionAudio("128K (MMA)", audioSelectedOption)
-                                RadioButtonOptionAudio("128K (MP3)", audioSelectedOption)
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceAround
-                            ) {
-                                RadioButtonOptionAudio("48K (MP3)", audioSelectedOption)
-                                RadioButtonOptionAudio("256K (MP3)", audioSelectedOption)
+                            if (audioOptions.isNotEmpty()) {
+                                audioOptions.chunked(2).forEach { rowOptions ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceAround
+                                    ) {
+                                        rowOptions.forEach { option ->
+                                            RadioButtonOptionAudio(option.quality, audioSelectedOption)
+                                        }
+                                        if (rowOptions.size == 1) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("No audio options available")
                             }
                         }
 
@@ -380,75 +372,67 @@ fun HomeScreen(navController: NavController) {
                             Text(text = "Video", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         }
 
+                        val videoOptions = mutableListOf<MediaOption>()
+
+                        api.medias?.filter { it.type == "video" }?.forEach { media ->
+                            videoOptions.add(MediaOption(media.quality ?: "Unknown", media.url ?: "", media.ext ?: "", media.type))
+                        }
+
+
                         val videoSelectedOption = remember { mutableStateOf("") }
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 20.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceAround
-                            ) {
-                                RadioButtonOptionAudio("144P (MP4)", videoSelectedOption)
-                                RadioButtonOptionAudio("240P (MP4)", videoSelectedOption)
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceAround
-                            ) {
-                                RadioButtonOptionAudio("360P (MP4)", videoSelectedOption)
-                                RadioButtonOptionAudio("480P (MP4)", videoSelectedOption)
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceAround
-                            ) {
-                                RadioButtonOptionAudio("720P HD (MP4)", videoSelectedOption)
-                                RadioButtonOptionAudio("1080P HD (MP4)", videoSelectedOption)
+                            if (videoOptions.isNotEmpty()) {
+                                videoOptions.chunked(2).forEach { rowOptions ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceAround
+                                    ) {
+                                        rowOptions.forEach { option ->
+                                            RadioButtonOptionAudio(option.quality, videoSelectedOption)
+                                        }
+                                        if (rowOptions.size == 1) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("No video options available")
                             }
                         }
 
 
-
                         Button(
                             onClick = {
-                                if (videoSelectedOption.value.isNotEmpty()) {
-                                    checkAndRequestPermissions()
+                                val selectedVideo = videoOptions.find { it.quality == videoSelectedOption.value }
+                                val selectedAudio = audioOptions.find { it.quality == audioSelectedOption.value }
 
-                                    val selectedVideoQuality = videoSelectedOption.value
-                                    val selectedAudioQuality = audioSelectedOption.value
+                                val selectedMedia = selectedVideo ?: selectedAudio
 
-                                    viewModel.Insert(
-                                        Video(
-                                            id = null,
-                                            title = api.title ?: "",
-                                            url = api.url ?: "",
-                                            Image = api.thumbnail ?: "",
-                                            path = api.id ?: "",
-                                            downloadProgress = 0.100f
+                                if (selectedMedia != null) {
+                                    val downloadUrl = selectedMedia.url
+                                    val fileName = api.title + "." + selectedMedia.ext
+
+                                    coroutineScope.launch {
+                                        downloadFile(
+                                            context = context,
+                                            url = downloadUrl,
+                                            title = fileName,
+                                            mimeType = if (selectedMedia.type == "video") "video/mp4" else "audio/mp3",
+                                            viewModel = viewModel,
+                                            apl = api
                                         )
-                                    )
-
-                                    val videoUrl = api.url ?: return@Button
-                                    val fileName = api.title
-                                    downloadFile(context, videoUrl, title = fileName, mimeType = "video/mp4")
-
-
-                                    Log.e("url", videoUrl)
+                                    }
 
                                     navController.navigate(Screen.ProgressScreen.route)
                                 } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Please select video quality",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    Toast.makeText(context, "Please select quality", Toast.LENGTH_SHORT).show()
                                 }
+
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -459,102 +443,118 @@ fun HomeScreen(navController: NavController) {
                         }
 
 
-
                     }
                 }
             }
 
 
         }
-        Scaffold(topBar = {
-            CenterAlignedTopAppBar(title = {
-                Text(text = "Video Download", fontWeight = FontWeight.Bold)
-            }, navigationIcon = {
-                Icon(imageVector = Icons.Default.Menu, contentDescription = "")
-            })
-        }) { innerPadding ->  // Access innerPadding here
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Video Download",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {  }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu"
+                            )
+                        }
+                    }
+                )
+            }
+        ) { innerPadding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding) // Use innerPadding
-                    .padding(16.dp),
+                    .padding(innerPadding)
+                    .padding(20.dp)
             ) {
-
-                TextField(
+                // Link Input Field
+                OutlinedTextField(
                     value = textField,
+                    onValueChange = {textField=it},
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp)),
-                    onValueChange = { textField = it },
+                        .clip(RoundedCornerShape(12.dp)),
                     placeholder = {
                         Text(text = "Paste your link here", color = Color.Gray)
                     },
                     leadingIcon = {
-                        Icon(imageVector = Icons.Default.Attachment, contentDescription = "")
+                        Icon(imageVector = Icons.Default.Link, contentDescription = "Link")
                     },
+                    singleLine = true,
                     colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFFF1F1F1),
+                        unfocusedContainerColor = Color(0xFFF1F1F1),
                         focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedContainerColor = Color(0xFFE7E7E7),
-                        unfocusedContainerColor = Color(0xFFE7E7E7)
-                    ),
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
+                // Download Button
                 Button(
                     onClick = {
-                        showBottomSheet = true
+                       showBottomSheet=true
                         viewModel.AllVideoDownloader(textField)
                     },
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
-                        .width(150.dp)
-                        .height(40.dp),
-                    shape = RoundedCornerShape(6.dp),
+                        .width(180.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0XFFfb727c))
                 ) {
-                    Text(text = "Download", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        text = "Download",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(36.dp))
+
 
                 Text(
                     text = "Social Media",
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    color = Color(0xFF333333),
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceAround
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val context = LocalContext.current
-
-                    SocialMediaIcon(icon = R.drawable.ic_youtube, label = "YouTube") {
-                        val url = "https://www.youtube.com/"
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                        context.startActivity(intent)
+                    val openLink: (String) -> Unit = { url ->
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     }
 
-                    SocialMediaIcon(icon = R.drawable.ic_tiktok, label = "TikTok") {
-                        val url = "https://www.tiktok.com/"
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                        context.startActivity(intent)
+                    SocialMediaIcon(R.drawable.ic_youtube, "YouTube") {
+                        openLink("https://www.youtube.com/")
                     }
 
-                    SocialMediaIcon(icon = R.drawable.ic_instagram, label = "Instagram") {
-                        val url = "https://www.instagram.com/"
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                        context.startActivity(intent)
+                    SocialMediaIcon(R.drawable.ic_tiktok, "TikTok") {
+                        openLink("https://www.tiktok.com/")
                     }
 
-                    SocialMediaIcon(icon = R.drawable.ic_facebook, label = "Facebook") {
-                        val url = "https://www.facebook.com/"
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                        context.startActivity(intent)
+                    SocialMediaIcon(R.drawable.ic_instagram, "Instagram") {
+                        openLink("https://www.instagram.com/")
+                    }
+
+                    SocialMediaIcon(R.drawable.ic_facebook, "Facebook") {
+                        openLink("https://www.facebook.com/")
                     }
                 }
             }
@@ -566,34 +566,33 @@ fun HomeScreen(navController: NavController) {
 fun SocialMediaIcon(icon: Int, label: String, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(vertical = 8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .clickable { onClick() }
     ) {
         Box(
             modifier = Modifier
                 .size(60.dp)
-                .clickable { onClick() }
-                .clip(RoundedCornerShape(12.dp))
-                .border(1.5.dp, Color(0xFFD1D1D1), RoundedCornerShape(12.dp)),
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFFF7F7F7)),
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(id = icon),
                 contentDescription = "$label Icon",
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(30.dp)
             )
         }
 
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp
-            ),
-            color = Color(0xFF616161)
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFF444444)
         )
     }
 }
+
 
 
 @Composable
@@ -602,36 +601,95 @@ fun RadioButtonOptionAudio(option: String, selectedOption: MutableState<String>)
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clickable { selectedOption.value = option }
-            .padding(vertical = 4.dp)
+            .padding(vertical = 6.dp)
     ) {
         RadioButton(
             selected = selectedOption.value == option,
             onClick = { selectedOption.value = option },
             colors = RadioButtonDefaults.colors(
-                selectedColor = Color.Red,
-                unselectedColor = Color.Gray
+                selectedColor = Color(0xFFfb727c),
+                unselectedColor = Color.LightGray
             )
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
-
-
             text = option,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             color = if (selectedOption.value == option) Color.Black else Color.Gray
         )
     }
 }
 
-private fun downloadFile(context: Context, url: String, title: String?, mimeType: String) {
-    val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
+fun downloadFile(
+    context: Context,
+    url: String,
+    title: String?,
+    mimeType: String,
+    viewModel: MainViewModel,
+    apl: api?
+) {
+    val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     val uri = Uri.parse(url)
+    val fileName = "$title.${MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)}"
     val request = DownloadManager.Request(uri)
         .setMimeType(mimeType)
         .setTitle(title)
         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "$title.$mimeType")
+        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
 
-    downloadManager.enqueue(request)
+    val downloadId = downloadManager.enqueue(request)
+
+
+    val video = Video(
+        title = title ?: "Unknown Video",
+        url = url,
+        Image = apl?.thumbnail ?: "",
+        path = fileName,
+        downloadProgress = 0.0f
+    )
+    viewModel.Insert(video)
+
+    observeDownloadProgress(context, downloadId, fileName, viewModel)
+}
+
+
+private fun observeDownloadProgress(
+    context: Context,
+    downloadId: Long,
+    path: String,
+    viewModel: MainViewModel
+) {
+    val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+    Thread {
+        var downloading = true
+        while (downloading) {
+            val query = DownloadManager.Query().setFilterById(downloadId)
+            val cursor = downloadManager.query(query)
+
+            if (cursor.moveToFirst()) {
+                val bytesDownloaded =
+                    cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                val bytesTotal =
+                    cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+
+                if (bytesTotal > 0) {
+                    val progress = bytesDownloaded.toFloat() / bytesTotal.toFloat()
+                    Log.d("Download", "Progress: $progress")
+
+
+                    viewModel.updateProgress(path, progress)
+                }
+
+                val status =
+                    cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
+                    downloading = false
+                }
+            }
+            cursor.close()
+            Thread.sleep(1000)
+        }
+    }.start()
 }

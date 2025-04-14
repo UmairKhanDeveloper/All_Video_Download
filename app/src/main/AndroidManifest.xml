@@ -20,7 +20,7 @@
         android:theme="@style/Theme.AllVideoDownload"
         tools:targetApi="31">
         <activity
-            android:name=".data.remote.api.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.AllVideoDownload">
